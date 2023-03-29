@@ -1,0 +1,39 @@
+<div class="bg-image" 
+     style="background-image: url('https://images.unsplash.com/photo-1544785349-c4a5301826fd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8Y29udHIlQzMlQjRsZXVyJTIwZGp8ZW58MHx8MHx8&w=1000&q=80');
+            height: 100vh">
+{% extends 'base.html' %}
+{% block title %} Dj Playlist Delector {% endblock %}
+
+
+
+{% block content %}
+
+  <h2 class="text-white sticky-bottom">Dj playlist shuffler</h2>
+  <h5 class="text-white sticky-bottom">Take you djing to the next level</h5>
+  <div class="container">
+    <form method="POST">
+      <div class="container w-25">
+      {{form.hidden_tag()}}
+  
+      
+      <p>
+          {{form.username.label(class_="text-white")}}
+          {{ form.username(class_="form-control text-success", placeholder="Enter Username") }}
+
+          {{form.password.label(class_="text-white")}}
+          {{ form.password(class_="form-control", placeholder="Enter Password") }}
+          
+  
+          {% for error in form.errors %}
+          <span class="form-text text-danger">{{ error }}</span>
+          {% endfor %}
+      </p>
+      
+      <button class="btn btn-success" type="submit">Login</button>
+      <p class="text-success mt-3"><a href="" >Sign up</a></p>
+    </div>
+  </form>
+  
+  </div>
+{% endblock %}
+</div>
