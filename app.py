@@ -76,6 +76,11 @@ def spotify_authentification():
 @app.route('/redirect')
 def redirectPage():
     # redirecting spotify authentification back to app
+    sp_oauth= create_spotify_oauth()
+    session.clear()
+    code= request.args.get('code')
+    token_info= sp_oauth.get_access_token(code)
+    session[TOKEN_INFO]= token_info
     return 'redirect'
 
    
