@@ -1,22 +1,40 @@
-from flask import Flask, request, render_template, redirect, flash, session
+from flask import Flask, request, render_template, redirect, flash, session, url_for
 from flask_debugtoolbar import DebugToolbarExtension
 from models import db, connect_db, User, PlaylistSong, Playlists, Song
 from forms import UserForm, NewSongForPlaylistForm, Login
 from sqlalchemy.exc import IntegrityError
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+from dotenv import load_dotenv
+import os
 
 app= Flask(__name__)
 
+# Applying secrets
+load_dotenv()
 
-
+# setting flask app.config
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql:///dj_db'
-
+app.config['SESSION_COOKIE_NAME'] = 'kani cookies'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ECHO'] = True 
-app.config['SECRET_KEY']='TDjakes35'
+app.config['SECRET_KEY']= os.getenv("SECRET_KEY")
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
+TOKEN_INFO = "token_info"
+
 debug = DebugToolbarExtension(app)
 
+
 connect_db(app)
+
+# gettting spotify authorization
+def create_spotify_oauth():
+        return SpotifyOAuth(
+            client_id= os.getenv("CLIENT_ID"),
+            client_secret= os.getenv("CLIENT_SECRET"),
+            redirect_uri=url_for('redirectPage', _external=True),
+            scope= "user-library-read"
+        )
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -30,18 +48,37 @@ def homepage():
           password= form.password.data
           user = User.authenticate(username, password)
           
+        #   checking if user's username exist on the session
           if user:
                   session['user_id']= user.id
                   flash(f"Welcome {username}!", 'success')
                   return redirect(f"/users/{user.id}")
         
+        # else redirect back to the login page
           else:
                   flash("Enter Correct login details", 'danger')
                   form.username.errors.append('Wrong login details!  Please take another')
                   return redirect('/')
-      
-    return render_template('index.html', form=form)    
+           
           
+      
+    return render_template('index.html', form=form)
+
+# spotify login redirect page
+@app.route('/spotify_auth')
+def spotify_authentification():
+    # spotify authorisation flow
+    sp_oauth= create_spotify_oauth()
+    auth_url=sp_oauth.get_authorize_url()
+    return redirect(auth_url)    
+
+# creating route that bring client back to app after spotify authentification
+@app.route('/redirect')
+def redirectPage():
+    # redirecting spotify authentification back to app
+    return 'redirect'
+
+   
         
 @app.route('/register', methods=['GET', 'POST'])
 def register_user():
@@ -102,12 +139,7 @@ def add_song_to_playlist(playlist_id):
                                   playlist_id=playlist_id)
       db.session.add(playlist_song)
 
-      # Here's another way you could that is slightly more ORM-ish:
-      #
-      # song = Song.query.get(form.song.data)
-      # playlist.songs.append(song)
-
-      # Either way, you have to commit:
+      
       db.session.commit()
 
       return redirect(f"/playlists/{playlist_id}")
