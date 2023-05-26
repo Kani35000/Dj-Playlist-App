@@ -7,6 +7,18 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 import os
+import flask
+import requests
+
+import google.oauth2.credentials
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
+import googleapiclient.errors
 
 app= Flask(__name__)
 
@@ -24,6 +36,14 @@ TOKEN_INFO = "token_info"
 
 debug = DebugToolbarExtension(app)
 
+# youtube client API credentials
+api_service_name = "youtube"
+api_version = "v3"
+# linking json client_secret_CLIENTID.json file
+client_secrets_file = "client_secret_CLIENTID.json"
+# google API scope
+scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
+
 
 connect_db(app)
 
@@ -36,6 +56,29 @@ def create_spotify_oauth():
             scope= "user-library-read"
         )
 
+# gettting youtube authorization
+def create_youtube_oauth():
+        # getting youtube authorization api instance
+        # Get credentials and create an API client
+        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+        
+        # flow.fetch_token(authorization_response=authorization_response)
+
+        flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(client_secrets_file, scopes=scopes)
+        flow.redirect_uri = flask.url_for('redirectPage', _external=True)
+        
+        # Enable offline access so that you can refresh an access token without
+        # re-prompting the user for permission. Recommended for web server apps.
+        # Enable incremental authorization. Recommended as a best practice.
+        authorization_url, state = flow.authorization_url(access_type='offline',include_granted_scopes='true')
+        # Store the state so the callback can verify the auth server response.
+        flask.session['state'] = state
+
+        return flask.redirect(authorization_url)
+
+        
+        
+        
 
 @app.route('/', methods=['GET', 'POST'])
 def homepage():
@@ -59,9 +102,7 @@ def homepage():
                   flash("Enter Correct login details", 'danger')
                   form.username.errors.append('Wrong login details!  Please take another')
                   return redirect('/')
-           
-          
-      
+  
     return render_template('index.html', form=form)
 
 # spotify login redirect page
@@ -72,19 +113,49 @@ def spotify_authentification():
     auth_url=sp_oauth.get_authorize_url()
     return redirect(auth_url)    
 
+# youtube login redirect page
+@app.route('/youtube_auth')
+def youtube_authentification():
+    # youtube authorisation flow
+    return create_youtube_oauth()
+
 # creating route that bring client back to app after spotify authentification
 @app.route('/redirect')
 def redirectPage():
-    # redirecting spotify authentification back to app
-    sp_oauth= create_spotify_oauth()
-    session.clear()
-    code= request.args.get('code')
-    token_info= sp_oauth.get_access_token(code)
-    session[TOKEN_INFO]= token_info
-    return 'redirect'
-
-   
+    if spotify_authentification():
+        # redirecting spotify authentification back to app
+        sp_oauth= create_spotify_oauth()
+        session.clear()
+        code= request.args.get('code')
+        token_info= sp_oauth.get_access_token(code)
+        session[TOKEN_INFO]= token_info
+        return 'redirect'
+    if youtube_authentification():
         
+        # verified in the authorization server response.
+        state = flask.session['state']
+
+        flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=scopes, state=state)
+        flow.redirect_uri = flask.url_for('oauth2callback', _external=True)
+
+        # Use the authorization server's response to fetch the OAuth 2.0 tokens.
+        authorization_response = flask.request.url
+        flow.fetch_token(authorization_response=authorization_response)
+
+        # Store credentials in the session.
+        # ACTION ITEM: In a production app, you likely want to save these
+        #              credentials in a persistent database instead.
+        credentials = flow.credentials
+        flask.session['credentials'] = credentials_to_dict(credentials)
+
+        return flask.redirect(flask.url_for('test_api_request'))
+
+        access_token = credentials.token  # Access token for making API requests
+        refresh_token = credentials.refresh_token  # Refresh token for obtaining new access tokens when the current one expires
+        return 'redirect'
+   
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register_user():
     """this creates users"""
@@ -152,3 +223,5 @@ def add_song_to_playlist(playlist_id):
     return render_template("add_song_to_playlist.html",
                          playlist=playlist,
                          form=form)
+
+
