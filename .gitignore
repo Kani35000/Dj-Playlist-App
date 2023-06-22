@@ -7,3 +7,6 @@ Djplaylist.egg-info
 dist
 client_secret_CLIENTID.json
 secrets.cpython-36.pyc
+home-anon.html
+generator
+templates/home-anon.html:Zone.Identifier
